@@ -728,3 +728,71 @@
     
     if __name__ == '__main__':
         main()
+
+# uvloop
+
+    uvloop 使得 asyncio 更快. 实际上，比nodejs，gevent，以及其他任何Python异步框架至少快两倍 ．
+    uvloop asyncio 基于性能的测试接近于Go程序
+
+
+## 代码实现
+
+    import asyncio
+    import uvloop
+    asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+    
+    在线程或者进程池中执行代码
+    
+    import concurrent.futures
+    import asyncio
+    import requests
+    import BeautifulSoup
+    
+    
+    class Spider(object):
+        def __init__(self):
+            self._urls = [
+                "http://www.fover.cn/da/"
+                "http://www.fover.cn/sha/"
+                "http://www.fover.cn/bi/"
+            ]
+            self._loop = asyncio.get_event_loop()
+            self._thread_pool = concurrent.futures.ThreadPoolExecutor(
+                max_workers=10)
+            self._process_pool = concurrent.futures.ProcessPoolExecutor()
+
+    def crawl(self):
+        a = []
+        for url in self._urls:
+            a.append(self._little_spider(url))
+        self._loop.run_until_complete(asyncio.gather(*a))
+        self._loop.close()
+        self._thread_pool.shutdown()
+        self._process_pool.shutdown()
+
+    async def _little_spider(self, url):
+        response = await self._loop.run_in_executor(
+            self._thread_pool, self._request, url)
+        urls = await self._loop.run_in_executor(self._process_pool,
+                                                self._biu_soup,
+                                                response.text)
+        print(urls)
+
+    def _request(self, url):
+        return requests.get(url=url,timeout=10)
+
+    @classmethod
+    def _biu_soup(cls, response_str):
+        
+        # 使用进程池执行任务的时候，需要加上 @classmethod装饰，因为多进程不共享内存
+       
+        soup = BeautifulSoup(response_str, 'lxml')
+        a_tags = soup.find_all("a")
+        a = []
+        for a_tag in a_tags:
+            a.append(a_tag['href'])
+        return a
+
+
+    如果顺序执行要6s结束，如果是多线程执行4S结束，性能是有所提升的，但是我们要知道这里的性能提升实际上是由于cpu并发实现性能提升，
+    也就是cpu线程切换（多道技术）带来的，而并不是真正的多cpu并行执行
