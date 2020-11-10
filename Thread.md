@@ -131,6 +131,7 @@
     if __name__ == "__main__":
         main()
     
+
 # 多线程
 ## 实现方式 1:
     import os
@@ -224,7 +225,17 @@
     if __name__ == "__main__":
         MyThread.main()
         
+
 # 线程的同步
+    
+    线程间访问同一变量需要同步
+    
+    线程间加锁会导致性能损失
+    
+    加锁可能产生死锁，迭代死锁和互相调用死锁
+    
+    可重入锁可以避免迭代死锁
+    
 ## Lock互斥锁
     多线程使用共享资源时，不加锁会造成数据不安全。线程中有了GIL锁为什么还会出现这种情况：
     GIL锁锁的是线程。保证同一时刻只有一个线程在运行。当A线程运行，拿到共享资源后，还没来得及处理，时间片切换到B线程，B线程拿到
@@ -295,6 +306,30 @@
     
     
     def thread_task(data, lock):
+        """
+            :param data:
+            :param lock:
+            :return:
+            获取锁 如果忘记释放锁，就可能会导致死锁，可用 上下文管理器来实现 with
+        
+             global num
+        
+            num1 = num
+        
+            with lock:
+        
+                print("------子线程data:%s enter thread task  父进程号为: %s, 线程号为：%s " % (
+                data, os.getpid(), threading.currentThread().ident))
+        
+                time.sleep(0.5)
+        
+                num = num1 - 1
+        
+                print("------子线程data:%s exit thread task  父进程号为: %s, 线程号为：%s" % (
+                data, os.getpid(), threading.currentThread().ident))
+    
+            return data ** 2
+        """
     
         global num
     
@@ -339,11 +374,38 @@
         """
  
  
-## 死锁
+## 死锁:
+
+    死锁主要在两种情况下发生:
     
-    两个或两个以上的线程在执行时，因争夺资源被相互锁住而相互等待
+        1. 迭代死锁:
+            
+            一个线程“迭代”请求同一个资源 ，会造成死锁
+        
+        2. 互相调用死锁:
+             
+             两个线程中都会调用相同的资源，互相等待对方结束的情况 。假设A线程需要资源a,b，B线程也需要资源a,b，
+             而线程A先获取资源a后，再获取资源b， B线程先获取资源b，再获取资源a。在A线程获取资源a，B线程获取资源b后，
+             A线程在等待B线程释放资源b，而B线程在等待A线程释放资源a，从而死锁就发生了
+
+### 迭代死锁：
+
+    total = 0
     
-### 死锁的实现
+    lock = threading.Lock()
+    
+    lock.acquire()
+    lock.acquire()
+    
+    total += 1
+    
+    lock.release()
+    lock.release()   
+    
+    一次请求资源后还未 release ，再次acquire，最终无法释放，造成死锁
+    
+### 互相调用死锁
+    
     import time
     import threading
     
@@ -368,6 +430,7 @@
     
     
     def thread_task_2(noodles_lock, fork_lock, name):
+        
         fork_lock.acquire()
     
         print("======= %s 获取到了叉子" % name)
@@ -379,10 +442,12 @@
         print("======= %s 获取到了面条" % name)
     
         print("======= %s 任务完成" % name)
+        
+        noodles_lock.release()
     
         fork_lock.release()
     
-        noodles_lock.release()
+        
     
     
     def main():
@@ -417,6 +482,19 @@
     为了支持同一个线程中多次请求同一资源，Python 提供了可重入锁(RLock)。这个RLock内部维护着一个锁(Lock)和一个计数器(counter)变量，
     counter 记录了acquire 的次数，从而使得资源可以被多次acquire。直到一个线程所有 acquire都被release(计数器counter变为0)，其他的线程才能获得资源。
 
+### RLock解决迭代死锁：
+    total = 0
+    
+    lock = threading.RLock()
+    
+    lock.acquire()
+    lock.acquire()
+    
+    total += 1
+    
+    lock.release()
+    lock.release() 
+    
 ### RLock的实现
     import time
     import threading
@@ -464,8 +542,7 @@
         吃面的任务： 需拿到面条和叉子后任务才能进行
         """
     
-        noodles_lock = fork_lock = threading.Lock()   # 一个钥匙串上的两把钥匙
-        # fork_lock = threading.RLock()
+        noodles_lock = fork_lock = threading.RLock()   # 一个钥匙串上的两把钥匙
     
         t1 = threading.Thread(target=thread_task_1, args=(noodles_lock, fork_lock, "person1"))
         t2 = threading.Thread(target=thread_task_2, args=(noodles_lock, fork_lock, "person2"))
@@ -477,11 +554,34 @@
         t2.join()
     
         print("=========主线程结束")
+        
+        """
+            ======= person1 获取到了面条
+            ======= person1 获取到了叉子
+            ======= person1 任务完成
+            ======= person2 获取到了叉子
+            ======= person2 获取到了面条
+            ======= person2 任务完成
+            =========主线程结束
+        """
     
     
     if __name__ == "__main__":
         main()
 
+### RLock中互斥锁和计数器的工作原理：
+    
+    在threading内部，RLock实现方式有两种，一种是调用_thread模块下的RLock，它是用C语言写的，另外一种是用Python语言写的
+    两者实现原理是一致的
+    
+    流程：
+    
+        当一个线程通过acquire()获取一个锁时， 首先会判断拥有锁的线程和调用acquire()的线程是否是同一个线程，如果是同一个线程
+        那么计数器+1，如果两个线程不一致时，那么会通过调用底层锁（_allocate_lock())进行阻塞自己（也可能是获得锁）
+        
+    当某个线程内部多次调用可重入锁时，仅仅在第一次获取锁对象时调用了_thread模块中锁的acquire()方法，
+    第二次，第三次...只是让计数器加1了而已；而当其他线程获取该锁时，因为调用了 _trhead模块中 _allocate_lock()方法阻塞了自己
+    
 ### Lock和RLock的区别
    
     Rlock实例化之后该对象可以在一个线程一直去acquire()，没有release()，其他对象不能获取锁；
