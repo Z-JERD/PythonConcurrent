@@ -540,6 +540,25 @@
     def main():
         """
         吃面的任务： 需拿到面条和叉子后任务才能进行
+        
+        noodles_lock = fork_lock = threading.RLock()
+
+            noodles_lock 和 fork_lock 是同一资源 id相同
+
+            print(id(noodles_lock))         1904251945808
+            print(id(fork_lock))            1904251945808
+
+        noodles_lock = threading.RLock()
+
+        fork_lock = threading.RLock()
+
+            noodles_lock 和 fork_lock 非同一资源 
+
+            print(id(noodles_lock))         2233250267984
+            print(id(fork_lock))            2233281886608
+
+            使用此方法仍会产生死锁
+        
         """
     
         noodles_lock = fork_lock = threading.RLock()   # 一个钥匙串上的两把钥匙
