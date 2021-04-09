@@ -225,6 +225,64 @@
     if __name__ == "__main__":
         MyThread.main()
         
+ # threading.local()
+
+    多线程操作时,为每个线程创建一个值。使得线程之间操作自己的值,互相不影响。
+    
+    一旦在主线程实例化了一个local，它会一直活在主线程中，并且又主线程启动的子线程调用这个local实例时，
+    它的值将会保存在相应的子线程中。
+    
+    使用场景:为每个线程绑定一个资源
+
+## 实例：
+
+    import time
+    import threading
+
+
+    info = "Python Thread Global"
+
+
+    localVal = threading.local()
+
+    localVal.var = "Python Thread Local"
+
+
+    def thread_task(data):
+
+        print("{}------>{}".format(info, data))
+
+        localVal.var = f"Local var is {data}"
+
+        time.sleep(2)
+
+        print(localVal.var)
+
+        return data ** 2
+
+
+    def main():
+        start_time = time.time()
+        thread_data = [100, 200]
+
+        thread_list = []
+
+        for v in thread_data:
+            t = threading.Thread(target=thread_task, args=(v,), daemon=None)
+            t.start()
+            thread_list.append(t)
+
+        for v in thread_list:
+            v.join()
+
+        print(localVal.var)
+
+        print("-----耗时：%s " % (time.time() - start_time))
+
+
+    if __name__ == "__main__":
+        main()
+        
 
 # 线程的同步
     
