@@ -980,40 +980,56 @@
     import threading
     import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
-    
-    
+
+
     def thread_task(data):
         print(
             "------子线程data:%s enter thread task  父进程号为: %s, 线程号为：%s" % (data, os.getpid(), threading.currentThread().ident))
-    
-        time.sleep(data / 1000)
-    
+
+        time.sleep(data / 100 + 2)
+
         print(
             "------子线程data:%s exit thread task  父进程号为: %s, 线程号为：%s" % (data, os.getpid(), threading.currentThread().ident))
-    
+
         return data**2
-    
-    
+
+
     def thread_task_callback(future):
-        print(" done task callback, the result is %s " % future.result())
+
+        """
+            回调在子线程中进行
+        """
+        print(" thread id is %s done task callback, the result is %s " % (threading.currentThread().ident, future.result()))
+
         time.sleep(1)
-    
+
         return
-    
-    
+
+
     def main():
-    
+
+        """
+         print("-------主线程 thread task：%s" % threading.currentThread().ident)
+
+         放在 with 的外层, 子线程执行完后，主线程才会继续
+
+         放在with的内层， 子线程开启后，主线程就会继续执行
+        """
+
         data_list = [100, 200]
-    
+
         with ThreadPoolExecutor(max_workers=5) as thread_pool:
-    
+
             for v in data_list:
                 t = thread_pool.submit(thread_task, v)
                 t.add_done_callback(thread_task_callback)
-    
-    
+
+            print("-------主线程 thread task：%s" % threading.currentThread().ident)
+
+
     if __name__ == "__main__":
         main()
+
 
 ## map
     map() 方法的返回值将会收集每个线程任务的返回结果
